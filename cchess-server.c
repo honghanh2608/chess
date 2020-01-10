@@ -19,6 +19,8 @@
 // Waiting player conditional variable
 pthread_cond_t player_to_join;
 pthread_mutex_t general_mutex;
+pthread_t tid[2];
+
 
 bool is_diagonal(int, int);
 
@@ -26,7 +28,7 @@ bool is_diagonal(int, int);
 int challenging_player = 0;
 int player_is_waiting = 0;
 
-void move_piece(wchar_t ** board, int * move) {
+void move_piece(wchar_t ** board, int * move) {//thuc hien di chuyen nuoc di 
   // Move piece in board from origin to dest
   board[move[2]][move[3]] = board[*move][move[1]];
   board[*move][move[1]] = 0;
@@ -36,7 +38,7 @@ bool emit(int client, char * message, int message_size) {
   return true;
 }
 
-void translate_to_move(int * move, char * buffer) {
+void translate_to_move(int * move, char * buffer) {//bien doi tu cu phap thanh 1 mang chua dl cua diem dau và diem dich 
 
   printf("buffer: %s\n", buffer);
 
@@ -48,7 +50,7 @@ void translate_to_move(int * move, char * buffer) {
   // printf("[%d, %d] to [%d, %d]\n", *(move), move[1], move[2], move[3]);
 }
 
-bool is_diagonal_clear(wchar_t ** board, int * move) {
+bool is_diagonal_clear(wchar_t ** board, int * move) {//kiem tra xem duong chéo có trông hay không 
 
   int * x_moves = (int *)malloc(sizeof(int));
   int * y_moves = (int *)malloc(sizeof(int));
@@ -57,7 +59,7 @@ bool is_diagonal_clear(wchar_t ** board, int * move) {
   *(y_moves) = move[1] - move[3];
 
   int * index = (int *)malloc(sizeof(int));
-  *(index) =  abs(*x_moves) - 1;
+  *(index) =  abs(*x_moves) - 1;//abs trả về giá trị tuyệt đối của x_move 
   wchar_t * item_at_position = (wchar_t *)malloc(sizeof(wchar_t));
 
   // Iterate thru all items excepting initial posi
@@ -87,7 +89,7 @@ bool is_diagonal_clear(wchar_t ** board, int * move) {
   return true;
 }
 
-bool is_syntax_valid(int player, char * move) {
+bool is_syntax_valid(int player, char * move) {//kiem tra cu phap cô hop le hay k 
   // Look for -
   if (move[2] != '-') { send(player, "e-00", 4, 0); return false; }
   //First and 3th should be characters
@@ -105,7 +107,7 @@ bool is_syntax_valid(int player, char * move) {
   return true;
 }
 
-void broadcast(wchar_t ** board, char * one_dimension_board, int player_one, int player_two) {
+void broadcast(wchar_t ** board, char * one_dimension_board, int player_one, int player_two) {//gui dl cua ban co,chieu ban co,2 ng choi
 
   to_one_dimension_char(board, one_dimension_board);
 
@@ -115,7 +117,7 @@ void broadcast(wchar_t ** board, char * one_dimension_board, int player_one, int
   printf("\tSent board...\n");
 }
 
-int get_piece_team(wchar_t ** board, int x, int y) {
+int get_piece_team(wchar_t ** board, int x, int y) {//kiem tra quan den hay trang 
 
   switch (board[x][y]) {
     case white_king: return -1;
@@ -136,7 +138,7 @@ int get_piece_team(wchar_t ** board, int x, int y) {
 
 }
 
-void promote_piece(wchar_t ** board, int destX, int destY, int team) {
+void promote_piece(wchar_t ** board, int destX, int destY, int team) {//nhập hậu 
   if (team == 1) {
     board[destX][destY] = black_queen;
   } else if (team == -1) {
@@ -144,7 +146,7 @@ void promote_piece(wchar_t ** board, int destX, int destY, int team) {
   }
 }
 
-int get_piece_type(wchar_t piece) {
+int get_piece_type(wchar_t piece) {//kiem tra la quân gi
 
   switch (piece) {
     case white_king: return 0;
@@ -164,27 +166,14 @@ int get_piece_type(wchar_t piece) {
 
 }
 
-bool is_rect(int * move) {
-
-  int * x_moves = (int *)malloc(sizeof(int));
-  int * y_moves = (int *)malloc(sizeof(int));
-
-  *x_moves = *(move) - move[2];
-  *y_moves = move[1] - move[3];
-
-
+bool is_rect(int x_moves, int y_moves) {//kiểm tra xe có đi đường thẳng hay k 
   if ((x_moves != 0 && y_moves == 0) || (y_moves != 0 && x_moves == 0)) {
-    free(x_moves);
-    free(y_moves);
     return true;
   }
-
-  free(x_moves);
-  free(y_moves);
   return false;
 }
 
-int is_rect_clear(wchar_t ** board, int * move, int x_moves, int y_moves ) {
+int is_rect_clear(wchar_t ** board, int * move, int x_moves, int y_moves ) {//kiểm tra đường thẳng có clear hay k 
 
   // Is a side rect
   int * index = (int *)malloc(sizeof(int));
@@ -211,7 +200,7 @@ int is_rect_clear(wchar_t ** board, int * move, int x_moves, int y_moves ) {
 
 }
 
-bool is_diagonal(int x_moves, int y_moves) {
+bool is_diagonal(int x_moves, int y_moves) {//kiểm tra có phải đường chéo hay không 
 
   if ((abs(x_moves)-abs(y_moves)) != 0) {
     return false;
@@ -224,17 +213,47 @@ int getManitud(int origin, int dest) {
   return (abs(origin-dest));
 }
 
-bool eat_piece(wchar_t ** board, int x, int y) {
+bool eat_piece(wchar_t ** board, int x, int y) {//kiểm tra xem có ăn được k 
   return (get_piece_team(board, x, y) != 0);
 }
 
-void freeAll(int * piece_team, int * x_moves, int * y_moves) {
+void freeAll(int * piece_team, int * x_moves, int * y_moves) {//giải phóng bàn cờ 
   free(piece_team);
   free(x_moves);
   free(y_moves);
 }
 
-bool is_move_valid(wchar_t ** board, int player, int team, int * move) {
+//ham kiem tra het co: 0 chua het, -1 trang thang, 1 la den thang  
+int end_game(wchar_t ** board){
+  int wk = 0;
+  int bk = 0;
+
+  for (int i = 0; i < 8; ++i)
+  {
+    for (int j = 0; j < 8; ++j)
+    {
+      printf("%6d ", board[i][j]);
+      if(board[i][j] == white_king) {//vua trang 
+        printf("white_king is alive");
+        wk = 1;
+      }
+      else if(board[i][j] == black_king) {//vua den
+        printf("black_king is alive");
+        bk = 1;
+      }
+    }
+    printf("\n");
+  }
+
+  if(wk != 0 && bk != 0)
+    return 0;
+  else if(wk != 0)
+    return -1;
+  else 
+    return 1;
+}
+
+bool is_move_valid(wchar_t ** board, int player, int team, int * move) {//kiểm tra nước đi có hợp lệ hay không 
 
   int * piece_team = (int *)malloc(sizeof(int *));
   int * x_moves = (int *)malloc(sizeof(int *));
@@ -274,7 +293,7 @@ bool is_move_valid(wchar_t ** board, int player, int team, int * move) {
       }
       break;
     case 2: /* --- ♜ --- */
-      if (!is_rect(move)) {
+      if (!is_rect(*x_moves, *y_moves)) {
         send(player, "e-30", 5, 0);
         freeAll(piece_team, x_moves, y_moves);
         return false;
@@ -393,7 +412,7 @@ void * game_room(void *client_socket) {
   player_is_waiting = 0; // Now none is waiting
 
   pthread_mutex_unlock(&general_mutex); // Unecesary?
-
+  //kiem tra ket noi tu server den client 1,2 co oke k
   if (send(player_one, "i-p1", 4, 0) < 0) {
      perror("ERROR writing to socket");
      exit(1);
@@ -403,17 +422,17 @@ void * game_room(void *client_socket) {
      exit(1);
   }
 
-  sleep(1);
+  sleep(1);//dung hoat dong cua luong trong 1s
 
   // Broadcast the board to all the room players
-  broadcast(board, one_dimension_board, player_one, player_two);
+  broadcast(board, one_dimension_board, player_one, player_two);//dui du lieu ban co one_dimension_board 
 
   sleep(1);
 
   bool syntax_valid = false;
   bool move_valid = false;
 
-  while (1) {
+  while (1) {//xu li nuoc di 
 
     send(player_one, "i-tm", 4, 0);
     send(player_two, "i-nm", 4, 0);
@@ -421,17 +440,17 @@ void * game_room(void *client_socket) {
     // Wait until syntax and move are valid
     printf("Waiting for move from player one (%d)... sending i\n", player_one);
 
-    while (!syntax_valid  || !move_valid) {
-      bzero(buffer, 64);
+    while (!syntax_valid  || !move_valid) {//xu li nuoc di cho thang 1 
+      bzero(buffer, 64);//khoi tao mang ten la buffe co kich thuoc 64
 
       printf("Checking syntax and move validation (%d,%d)\n", syntax_valid, move_valid);
-      if (read(player_one, buffer, 6) < 0) {
+      if (read(player_one, buffer, 6) < 0) {//doc dl tư client tư client gui cho server khi di ,nuoc di nhap vao mang buffe 
         perror("ERROR reading from socket");
         exit(1);
       }
       printf("Player one (%d) move: %s\n", player_one, buffer);
 
-      syntax_valid = is_syntax_valid(player_one, buffer);
+      syntax_valid = is_syntax_valid(player_one, buffer);//kiem tra cu phap nuoc di co dung k
 
       translate_to_move(move, buffer); // Convert to move
 
@@ -448,8 +467,21 @@ void * game_room(void *client_socket) {
     move_piece(board, move);
 
     // Send applied move board
-    broadcast(board, one_dimension_board, player_one, player_two);
+    broadcast(board, one_dimension_board, player_one, player_two);//gui dl den tat ca nguoi choi trong 1 ban co 
     sleep(1);
+
+    //kiem tra het co 
+    if(end_game(board) == -1){//quan trắng thang (nguoi choi 1 thang)
+      send(player_one,"go_w",4,0);
+      send(player_two,"go_w",4,0);
+      break;
+    } else if (end_game(board) == 1) {
+      send(player_one,"go_b",4,0);
+      send(player_two,"go_b",4,0);
+      break;
+    }
+
+    //nguoi choi 2
     send(player_one, "i-nm", 4, 0);
     send(player_two, "i-tm", 4, 0);
 
@@ -467,7 +499,7 @@ void * game_room(void *client_socket) {
 
       translate_to_move(move, buffer); // Convert to move
 
-      move_valid = is_move_valid(board, player_two, -1, move);
+      move_valid = is_move_valid(board, player_two, -1, move);//xem nuoc đi hop le hay k
     }
     printf("Player two (%d) made move\n", player_two);
 
@@ -480,6 +512,16 @@ void * game_room(void *client_socket) {
     // Send applied move board
     broadcast(board, one_dimension_board, player_one, player_two);
     sleep(1);
+    //kiem tra het co 
+    if(end_game(board) == -1){//quan đen thang (nguoi choi 1 thang)
+      send(player_one,"go_w",4,0);
+      send(player_two,"go_w",4,0);
+      break;
+    } else if (end_game(board) == 1) {
+      send(player_one,"go_b",4,0);
+      send(player_two,"go_b",4,0);
+      break;
+    }
 
   }
 
@@ -489,8 +531,46 @@ void * game_room(void *client_socket) {
 
 }
 
+void * on_request(void * client_socket) {
+  int sockfd = *(int *)client_socket;
+  char buffer[64];
+  memset(buffer, 0, 64);//set buffer về 0
+  while (1) {
+  int n = read(sockfd,buffer, 64);
+  if (n < 0)     {
+     printf("ERROR on receive\n");
+   }
+   if (strcmp(buffer, "rank") == 0){
+      char rank[] = "1. Hanh 2. Hoa";
+      n = write(sockfd, rank, strlen(rank)); 
+      if (n < 0)      {
+        printf("ERROR rank\n");
+      }
+      printf("Rank: %s\n", rank);
+      sleep(1);
+   } else if (strcmp(buffer, "play") == 0){
+      pthread_mutex_lock(&general_mutex); // Unecesary?
+     // Create thread if we have no user waiting
+      if (player_is_waiting == 0) {//bien dem xem có bn ng dang cho 
+       printf("Connected player, creating new game room...\n");
+       pthread_create(&tid[0], NULL, &game_room, &sockfd);//ham tao ra 1 luong chay ham game_room 
+       pthread_mutex_unlock(&general_mutex); // Unecesary?
+     }
+     // If we've a user waiting join that room
+     else {
+       // Send user two signal
+       printf("Connected player, joining game room... %d\n", sockfd);
+       challenging_player = sockfd;//socket id cua thang thu 2
+       pthread_mutex_unlock(&general_mutex); // Unecesary?
+       pthread_cond_signal(&player_to_join);//gui ra 1 tin hieu den o nhơ cua  bien 
+     }
+   }
+ }
+}
+
+
+
 int main( int argc, char *argv[] ) {
-  pthread_t tid[1];
   setlocale(LC_ALL, "en_US.UTF-8");
 
   int sockfd, client_socket, port_number, client_length;
@@ -514,9 +594,9 @@ int main( int argc, char *argv[] ) {
   bzero((char *) &server_address, sizeof(server_address));
   port_number = PORT;
 
-  server_address.sin_family = AF_INET;
-  server_address.sin_addr.s_addr = INADDR_ANY;
-  server_address.sin_port = htons(port_number);
+  server_address.sin_family = AF_INET;//mac dinh 
+  server_address.sin_addr.s_addr = INADDR_ANY;//ip server 
+  server_address.sin_port = htons(port_number);//port number 
 
   /* Now bind the host address using bind() call.*/
   if (bind(sockfd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
@@ -535,28 +615,13 @@ int main( int argc, char *argv[] ) {
      /* Accept actual connection from the client */
      client_socket = accept(sockfd, (struct sockaddr *)&client, (unsigned int *)&client_length);
      printf("– Connection accepted from %d at %d.%d.%d.%d:%d –\n", client_socket, client.sin_addr.s_addr&0xFF, (client.sin_addr.s_addr&0xFF00)>>8, (client.sin_addr.s_addr&0xFF0000)>>16, (client.sin_addr.s_addr&0xFF000000)>>24, client.sin_port);
-
+     //ktra ket noi co thanh cong hay k
      if (client_socket < 0) {
         perror("ERROR on accept");
         exit(1);
      }
 
-     pthread_mutex_lock(&general_mutex); // Unecesary?
-     // Create thread if we have no user waiting
-     if (player_is_waiting == 0) {
-       printf("Connected player, creating new game room...\n");
-       pthread_create(&tid[0], NULL, &game_room, &client_socket);
-       pthread_mutex_unlock(&general_mutex); // Unecesary?
-     }
-     // If we've a user waiting join that room
-     else {
-       // Send user two signal
-       printf("Connected player, joining game room... %d\n", client_socket);
-       challenging_player = client_socket;
-       pthread_mutex_unlock(&general_mutex); // Unecesary?
-       pthread_cond_signal(&player_to_join);
-     }
-
+     pthread_create(&tid[1], NULL, &on_request, &client_socket);
    }
 
    close(sockfd);

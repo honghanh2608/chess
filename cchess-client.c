@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <unistd.h>
 #include <pthread.h>
 
@@ -14,7 +15,13 @@
 #define RESET "\x1B[0m"
 #define GREEN  "\x1B[32m"
 
-void * on_signal(void * sockfd) {
+int sockfd, portno, n;
+struct sockaddr_in serv_addr;
+struct hostent * server;
+pthread_t tid[1];
+
+
+void * on_signal(void * sockfd) {//xử lý dl server trả về 
   char buffer[64];
   int n;
   int socket = *(int *)sockfd;
@@ -40,9 +47,9 @@ void * on_signal(void * sockfd) {
         if (buffer[2] == 'p') {
           *player = atoi(&buffer[3]);
           if (*player == 2) {
-            printf("You're blacks (%c)\n", buffer[3]);
-          } else {
             printf("You're whites (%c)\n", buffer[3]);
+          } else {
+            printf("You're blacks (%c)\n", buffer[3]);
           }
         }
       }
@@ -76,9 +83,19 @@ void * on_signal(void * sockfd) {
               break;
           }
         }
-        printf("\nerror %s\n", buffer);
       }
       // Check if it's an informative or error message
+    } else if (buffer[0] == 'r') {
+      printf("%s\n", buffer);
+    } else if(buffer[0] == 'g') {
+      switch (buffer[3]){
+        case 'w':
+          printf("WHITE WIN!");
+          break;
+        case 'b':
+          printf("BLACK WIN!");
+          break;
+      }
     } else {
       // Print the board
       system("clear");
@@ -93,69 +110,157 @@ void * on_signal(void * sockfd) {
   }
 }
 
-int main(int argc, char *argv[]) {
-   int sockfd, portno, n;
-   struct sockaddr_in serv_addr;
-   struct hostent * server;
+int login(){
 
-   setlocale(LC_ALL, "en_US.UTF-8");
+}
+
+int signup(){
+
+}
+
+int responseRank = 0;
+void * handleRank(void * sockfd) {
+  char buffer[64];
+  int n;
+  int socket = *(int *)sockfd;
+  int * player = (int *)malloc(sizeof(int *));
+
+  while (1) {
+    bzero(buffer, 64);
+    n = read(socket, buffer, 64);
+
+    if (n < 0) {
+       perror("ERROR reading from socket");
+       exit(1);
+    }
+
+    printf("%s\n", buffer);
+
+    bzero(buffer, 64);
+    responseRank = 1;
+  }
+}
+
+int rank(){
+    int n = -1;
+    char buffer[] = "rank";
+    pthread_create(&tid[0], NULL, &handleRank, &sockfd);
+    n = write(sockfd, buffer, strlen(buffer));//gửi dl lên server 
+    if (n < 0) {//kiem tra gui thanh cong hay k 
+      perror("ERROR writing to socket");
+      exit(1);
+   }
+    while(responseRank == 0) {
+
+   }
+}
+
+void play() {
    char buffer[64];
+   // Response thread
+   pthread_create(&tid[0], NULL, &on_signal, &sockfd);//tạo ra 1 luồng khi server gửi dl cho client thì nó sẽ chạy vào hàm on_signal 
+    n = write(sockfd, "play", strlen("play"));//gửi dl lên server 
 
-   if (argv[2] == NULL) {
-     portno = 80;
-   } else {
-     portno = atoi(argv[2]);
+     if (n < 0) {//kiem tra gui thanh cong hay k 
+        perror("ERROR writing to socket");
+        exit(1);
+     }
+   while (1) {
+     bzero(buffer, 64);
+     fgets(buffer, 64, stdin);
+     fflush(stdin);
+     /* Send message to the server */
+     n = write(sockfd, buffer, strlen(buffer));//gửi dl lên server 
+
+     if (n < 0) {//kiem tra gui thanh cong hay k 
+        perror("ERROR writing to socket");
+        exit(1);
+     }
    }
+}
 
-   printf("Connecting to %s:%d\n", argv[1], portno);
+int state = 1; //0-chua dang nhap, 1-dang nhap roi
 
-   /* Create a socket point */
-   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+int main(int argc, char *argv[]) {//97-136:kết nối đến server 
+  setlocale(LC_ALL, "en_US.UTF-8");
 
-   if (sockfd < 0) {
-      perror("ERROR opening socket");
-      exit(1);
-   }
+  portno = 8080;
 
-   server = gethostbyname(argv[1]);
+  printf("Connecting to %s:%d\n", "localhost", portno);
 
-   if (server == NULL) {
-      fprintf(stderr,"ERROR, no such host\n");
-      exit(0);
-   }
+  /* Create a socket point */
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-   bzero((char *) &serv_addr, sizeof(serv_addr));
-   serv_addr.sin_family = AF_INET;
-   bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-   serv_addr.sin_port = htons(portno);
+  if (sockfd < 0) {
+    perror("ERROR opening socket");
+    exit(1);
+  }
 
-   /* Now connect to the server */
-   if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-      perror("ERROR connecting");
-      exit(1);
-   }
+  server = gethostbyname("localhost");
+
+  if (server == NULL) {
+    fprintf(stderr,"ERROR, no such host\n");
+    exit(0);
+  }
+
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+  serv_addr.sin_port = htons(portno);
+
+  // Now connect to the server 
+  if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+    perror("ERROR connecting");
+    exit(1);
+  }
 
    /* Now ask for a message from the user, this message
       * will be read by server
    */
 
-   pthread_t tid[1];
+  char username[256];
+  char password[256];
+  char menu[64];
+  // printf("1.START PLAY\n");
+  // printf("2.RANK\n");
+  // printf("Enter your choose: ");
+  // fgets(menu, 64, stdin);
+  //   switch(menu[0]){
+  //     case '1':{
+  //       play();
+  //       break;
+  //     }
+  //     case '2':{
+  //       rank();
+  //       break;
+  //     }
+  //   }
+  // fflush(stdin);
 
-   // Response thread
-   pthread_create(&tid[0], NULL, &on_signal, &sockfd);
+  while(1) {
+    switch (state) {
+      case 0: {
 
-   while (1) {
-     bzero(buffer, 64);
-     fgets(buffer, 64, stdin);
-
-     /* Send message to the server */
-     n = write(sockfd, buffer, strlen(buffer));
-
-     if (n < 0) {
-        perror("ERROR writing to socket");
-        exit(1);
-     }
-   }
-
-   return 0;
+      }
+      case 1: {
+        printf("1.START PLAY\n");
+        printf("2.RANK\n\n");
+        printf("Enter your choose: ");
+        fgets(menu, 64, stdin);
+        fflush(stdin);
+        switch(menu[0]){
+          case '1':{
+            play();
+            break;
+          }
+          case '2':{
+            rank();
+            break;
+          }
+        }
+        break;
+      }  
+    }
+  }
+  return 0;
 }
